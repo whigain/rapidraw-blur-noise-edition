@@ -125,9 +125,8 @@ RapidRAW is licensed under the GNU Affero General Public License v3.0. This proj
 
 This is an independent community project and is not affiliated with, endorsed by, or supported by the RapidRAW maintainers.
 
-## Contributing and security
+## Contributing
 
 - See [CONTRIBUTING.md](CONTRIBUTING.md) for development and compatibility rules.
-- See [SECURITY.md](SECURITY.md) for responsible disclosure guidance.
 - See [CHANGELOG.md](CHANGELOG.md) for release notes.
-- See [PUBLISHING.md](PUBLISHING.md) for binary-release security requirements.
+- See [PUBLISHING.md](PUBLISHING.md) for binary-release integrity requirements.
