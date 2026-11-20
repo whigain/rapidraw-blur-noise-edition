@@ -1,0 +1,13 @@
+{
+  "name": "rapidraw-blur-noise-wrapper",
+  "version": "0.1.3",
+  "description": "Builds BlurNoisePluginInstaller.exe (a Node SEA wrapper around blurnoiseinstaller.mjs).",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build-exe": "node build-exe.mjs",
+    "run-dev": "node blurnoiseinstaller.mjs"
+  },
+  "engines": { "node": ">=22" }
+}

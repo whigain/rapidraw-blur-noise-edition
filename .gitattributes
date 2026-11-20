@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+*.exe binary
+*.msi binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+
+# Preserve upstream Node license text verbatim; its formatting includes intentional whitespace.
+wrapper/THIRD_PARTY_NOTICES.txt -whitespace

@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Release artifacts (publish these through GitHub Releases, not Git)
+dist/
+
+# Node SEA build intermediates
+wrapper/*.bundle.cjs
+wrapper/*.blob
+wrapper/sea-config.json
+
+# Logs and local environment
+*.log
+.env
+.env.*
+!.env.example
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
