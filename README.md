@@ -12,7 +12,7 @@ Gaussian Blur, procedural Noise, and Film Noise for [RapidRAW](https://github.co
 
 [**⬇ Download the latest release**](https://github.com/whigain/rapidraw-blur-noise-edition/releases/latest)
 
-Grab `BlurNoisePluginInstaller.exe` and its five companion files from the latest release, keep them together in one folder, close RapidRAW, and run the EXE. It installs the Blur Noise Edition into your existing **RapidRAW 1.7.0** — then open RapidRAW and find **Gaussian Blur**, **Noise**, and **Film Noise** in the Effects panel. (Windows may show a SmartScreen notice because the build is unsigned — *More info → Run anyway*.)
+Download **only** `BlurNoisePluginInstaller.exe` from the latest release, close RapidRAW, and run it. The EXE already contains the signed manifest plus both RapidRAW installer channels; it selects and temporarily extracts only the one your local installation needs. It installs the Blur Noise Edition into your existing **RapidRAW 1.7.0** — then open RapidRAW and find **Gaussian Blur**, **Noise**, and **Film Noise** in the Effects panel. (Windows may show a SmartScreen notice because the build is unsigned — *More info → Run anyway*.)
 
 > **Important:** RapidRAW currently has no public runtime plugin API. This project is therefore a clean-room, versioned **source-tree patcher** plus a Windows **end-user updater** that installs a prebuilt RapidRAW edition. It never decompiles or patches a compiled RapidRAW binary in place.
 
@@ -39,18 +39,13 @@ Each upstream RapidRAW release must receive its own tested Blur Noise Edition bu
 
 ## End-user installation — Windows
 
-The release contains six files that must remain in the same folder:
+The release has one download:
 
 ```text
 BlurNoisePluginInstaller.exe
-RapidRAW_1.7.0_x64-setup.exe
-RapidRAW_1.7.0_x64_en-US.msi
-release-manifest.json
-release-manifest.sig
-THIRD_PARTY_NOTICES.txt
 ```
 
-`release-manifest.json` pins the expected filenames and SHA-256 digests. `release-manifest.sig` is an Ed25519 detached signature verified against the updater's embedded public key. The updater rejects any modified, unsigned, or incomplete release before it launches a native installer.
+The EXE embeds the matching MSI and NSIS installers, `release-manifest.json`, its Ed25519 signature, and the third-party notices. At startup it verifies the exact manifest bytes and both embedded installer SHA-256 hashes, detects the existing installation channel, and extracts only the selected native installer into a disposable temporary directory.
 
 1. Close RapidRAW.
 2. Start `BlurNoisePluginInstaller.exe`.
@@ -65,7 +60,7 @@ C:\Users\<user>\AppData\Local\RapidRAW
 
 Do **not** run the source-tree patcher against that folder. It contains a compiled application, not a RapidRAW source checkout.
 
-> The updater is currently unsigned. Windows may display a SmartScreen warning until a release is code-signed. Do not publish binary assets until the controls in [PUBLISHING.md](PUBLISHING.md) are complete.
+> The EXE is currently not Authenticode-signed, like upstream RapidRAW builds may also be. Windows can therefore display a SmartScreen warning. The embedded Ed25519 signature still protects the internal release manifest and installer hashes.
 
 ## Developer installation — RapidRAW source tree
 
@@ -98,12 +93,12 @@ npm test
 Build the Windows end-user updater after a successful RapidRAW release build:
 
 ```bash
-npm run build-exe
 # Copy the matching RapidRAW_<version>_x64-setup.exe and RapidRAW_<version>_x64_<locale>.msi into dist/
-npm run assemble-release
+RAPIDRAW_RELEASE_SIGNING_KEY=<offline-ed25519-private-key> npm run assemble-release
+npm run build-exe
 ```
 
-Publish the files in `dist/` as GitHub Release assets. They are intentionally ignored by Git.
+`build-exe` verifies the signed payload and embeds it into `dist/BlurNoisePluginInstaller.exe`. Publish only that EXE as the GitHub Release asset; the intermediate installers, manifest, signature, and notices remain CI/build inputs and are intentionally ignored by Git.
 
 ## Verification
 

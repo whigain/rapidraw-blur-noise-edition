@@ -1,6 +1,6 @@
 {
   "name": "rapidraw-blur-noise-plugin",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Gaussian Blur, Noise, and Film Noise edition for RapidRAW.",
   "license": "AGPL-3.0-or-later",
   "keywords": [

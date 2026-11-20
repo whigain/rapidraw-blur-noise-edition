@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.0] - 2026-11-20
+
+### Changed
+
+- GitHub releases now contain one self-contained `BlurNoisePluginInstaller.exe` instead of six companion files.
+- The EXE embeds the MSI, NSIS setup, Ed25519-signed manifest, signature, and third-party notices.
+- Runtime verification checks both embedded installer hashes before selecting the installed RapidRAW channel.
+- Only the selected installer is extracted into a disposable temporary directory and removed after use.
+- Release automation now signs the internal payload first, builds the single EXE, and uploads only that EXE.
+
+### Verified
+
+- 27 automated tests, isolated one-file SEA smoke test, embedded signature/hash verification, channel detection, and clean prompt-decline exit.
+
 ## [0.1.3] - 2026-11-18
 
 ### Added

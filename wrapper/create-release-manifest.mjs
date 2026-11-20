@@ -44,9 +44,6 @@ function findArtifacts() {
 }
 
 async function main() {
-  const wrapperPath = join(DIST, 'BlurNoisePluginInstaller.exe');
-  if (!existsSync(wrapperPath)) throw new Error('Build BlurNoisePluginInstaller.exe before creating the release manifest');
-
   const packageJson = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
   const artifacts = await Promise.all(findArtifacts().map(async (artifact) => ({
     file: artifact.file,

@@ -15,6 +15,10 @@ import { copyFileSync, mkdirSync, rmSync, writeFileSync, existsSync } from 'node
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { loadVerifiedRelease } from './release-bundle.mjs';
+import { RELEASE_PUBLIC_KEY_PEM } from './release-public-key.mjs';
+import { createSeaAssetMap } from './single-exe-assets.mjs';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const WRAPPER_DIR = __dirname;
@@ -50,6 +54,13 @@ async function main() {
   }
 
   mkdirSync(DIST, { recursive: true });
+  const manifest = await loadVerifiedRelease(DIST, RELEASE_PUBLIC_KEY_PEM);
+  const seaAssets = createSeaAssetMap(manifest);
+  for (const assetPath of Object.values(seaAssets)) {
+    if (!existsSync(resolve(WRAPPER_DIR, assetPath))) {
+      throw new Error(`Single-EXE asset is missing: ${assetPath}`);
+    }
+  }
   const bundleName = 'blurnoiseinstaller.bundle.cjs';
   const blobName = 'blurnoiseinstaller.blob';
   const seaConfigName = 'sea-config.json';
@@ -78,6 +89,7 @@ async function main() {
     disableExperimentalSEAWarning: true,
     useSnapshot: false,
     useCodeCache: true,
+    assets: seaAssets,
   };
   writeFileSync(seaConfigPath, JSON.stringify(seaConfig, null, 2));
   log.ok(seaConfigPath);
@@ -120,14 +132,9 @@ async function main() {
   log.ok('Intermediates removed.');
 
   log.title('Done');
-  log.ok(`EXE ready: ${exePath}`);
-  log.info('');
-  log.info(`${C.bold}Next:${C.reset} copy both freshly-built RapidRAW installers next to it, then create the verified release manifest:`);
-  log.info(`  cp "../../RapidRAW-main/src-tauri/target/release/bundle/msi/RapidRAW_*.msi" "${DIST}"`);
-  log.info(`  cp "../../RapidRAW-main/src-tauri/target/release/bundle/nsis/RapidRAW_*-setup.exe" "${DIST}"`);
-  log.info('  RAPIDRAW_RELEASE_SIGNING_KEY=<offline-ed25519-private-key> npm run assemble-release');
-  log.info('');
-  log.info(`Then distribute all files in ${C.bold}dist/${C.reset} together.`);
+  log.ok(`Single-file EXE ready: ${exePath}`);
+  log.info(`Embedded RapidRAW ${manifest.rapidrawVersion}: MSI + NSIS + signed manifest + notices.`);
+  log.info(`Publish only ${C.bold}dist/BlurNoisePluginInstaller.exe${C.reset}.`);
 }
 
 main().catch((e) => { console.error(e); process.exit(10); });

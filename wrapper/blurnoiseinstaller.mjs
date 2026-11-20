@@ -20,6 +20,8 @@
 
 import { spawnSync, execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { getAsset, isSea } from 'node:sea';
 
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
@@ -27,10 +29,11 @@ import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { selectBundle, shouldAllowInstall } from './install-selection.mjs';
+import { extractEmbeddedInstaller, loadVerifiedEmbeddedRelease } from './embedded-release.mjs';
 import { loadVerifiedRelease } from './release-bundle.mjs';
 import { RELEASE_PUBLIC_KEY_PEM } from './release-public-key.mjs';
 
-const VERSION = '0.1.3';
+const VERSION = '0.2.0';
 
 // ---------------------------------------------------------------------------
 // Pretty ANSI output — works in modern Windows terminals.
@@ -66,15 +69,24 @@ function installerDir() {
 }
 
 // ---------------------------------------------------------------------------
-// Load the signed release manifest shipped next to the updater. The embedded
-// public key authenticates the exact manifest bytes, and every declared
-// artifact is SHA-256 verified before the updater can launch it.
+// Load the signed release payload. Published SEA executables carry MSI, NSIS,
+// manifest, signature, and notices internally. Plain-node development keeps the
+// legacy companion-file path so the wrapper can still be tested without SEA.
 // ---------------------------------------------------------------------------
 async function loadBundledRelease() {
-  const dir = installerDir();
   try {
-    const manifest = await loadVerifiedRelease(dir, RELEASE_PUBLIC_KEY_PEM);
-    return { dir, manifest };
+    if (isSea()) {
+      return {
+        embedded: true,
+        ...loadVerifiedEmbeddedRelease(getAsset, RELEASE_PUBLIC_KEY_PEM),
+      };
+    }
+    const dir = installerDir();
+    return {
+      embedded: false,
+      dir,
+      manifest: await loadVerifiedRelease(dir, RELEASE_PUBLIC_KEY_PEM),
+    };
   } catch (error) {
     throw new Error(`Signierte Release-Prüfung fehlgeschlagen: ${error.message}`);
   }
@@ -217,16 +229,18 @@ async function main() {
     await pause();
     process.exit(2);
   }
-  const selected = selectBundle(release.manifest.artifacts, installed?.channel);
-  const bundle = selected && { kind: selected.kind, path: join(release.dir, selected.file) };
-  if (!bundle) {
+  const availableArtifacts = release.embedded
+    ? [...release.artifacts.values()]
+    : release.manifest.artifacts;
+  const selected = selectBundle(availableArtifacts, installed?.channel);
+  if (!selected) {
     log.err(`Kein ${installed?.channel?.toUpperCase() ?? 'passender'} Installer im Release-Manifest gefunden.`);
     log.info('Das Release muss sowohl ein MSI- als auch ein NSIS-Artefakt enthalten.');
     await pause();
     process.exit(3);
   }
   const bundleVersion = release.manifest.rapidrawVersion;
-  log.ok(`Blur-Noise-Edition-${bundle.kind.toUpperCase()} gefunden: ${basename(bundle.path)}`);
+  log.ok(`Blur-Noise-Edition-${selected.kind.toUpperCase()} eingebettet: ${selected.file}`);
 
   if (installed) {
     log.ok(`Installiertes RapidRAW gefunden: ${installed.path}`);
@@ -258,13 +272,23 @@ async function main() {
 
   log.title('Installation läuft');
   let code;
+  let extracted = null;
   try {
+    let bundle;
+    if (release.embedded) {
+      extracted = await extractEmbeddedInstaller(selected, tmpdir());
+      bundle = { kind: selected.kind, path: extracted.path };
+    } else {
+      bundle = { kind: selected.kind, path: join(release.dir, selected.file) };
+    }
     code = runInstaller(bundle);
   } catch (e) {
+    if (extracted) await extracted.cleanup().catch(() => {});
     log.err(e.message);
     await pause();
     process.exit(3);
   }
+  if (extracted) await extracted.cleanup().catch(() => {});
   log.blank();
 
   if (code === 0) {
