@@ -61,6 +61,15 @@ jobs:
           fi
           echo "Building against ${RAPIDRAW_REPO}@${RAPIDRAW_REF}"
 
+      # RapidRAW's source is stored with LF; the plugin's patch anchors use LF.
+      # GitHub's Windows runners default to core.autocrlf=true, which would
+      # rewrite the checkout to CRLF and break every anchor match. Force LF.
+      - name: Force LF line endings for the RapidRAW checkout
+        shell: bash
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
       - name: Checkout RapidRAW source
         uses: actions/checkout@v5
         with:
