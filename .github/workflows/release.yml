@@ -97,6 +97,21 @@ jobs:
         working-directory: plugin
         run: npm ci
 
+      # On a release, build the plugin AT the tag's version: stamp it into
+      # package.json (manifest pluginVersion) and the wrapper's VERSION banner.
+      - name: Sync plugin version from release tag
+        if: ${{ github.event_name == 'release' }}
+        working-directory: plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          ver="${GITHUB_REF_NAME#v}"
+          echo "Release tag ${GITHUB_REF_NAME} -> plugin version ${ver}"
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version='${ver}';fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+          sed -i "s/const VERSION = '[^']*';/const VERSION = '${ver}';/" wrapper/blurnoiseinstaller.mjs
+          grep '"version"' package.json | head -1
+          grep "const VERSION =" wrapper/blurnoiseinstaller.mjs
+
       - name: Plugin unit tests
         working-directory: plugin
         run: npm test

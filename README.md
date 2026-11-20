@@ -1,6 +1,18 @@
 # RapidRAW Blur Noise Edition
 
+[![Latest release](https://img.shields.io/github/v/release/whigain/rapidraw-blur-noise-edition?sort=semver&display_name=tag)](https://github.com/whigain/rapidraw-blur-noise-edition/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/whigain/rapidraw-blur-noise-edition/total)](https://github.com/whigain/rapidraw-blur-noise-edition/releases)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
+![Platform: Windows x64](https://img.shields.io/badge/platform-Windows%20x64-lightgrey)
+![Target: RapidRAW 1.7.0](https://img.shields.io/badge/RapidRAW-1.7.0-brightgreen)
+
 Gaussian Blur, procedural Noise, and Film Noise for [RapidRAW](https://github.com/CyberTimon/RapidRAW).
+
+## Download
+
+[**⬇ Download the latest release**](https://github.com/whigain/rapidraw-blur-noise-edition/releases/latest)
+
+Grab `BlurNoisePluginInstaller.exe` and its five companion files from the latest release, keep them together in one folder, close RapidRAW, and run the EXE. It installs the Blur Noise Edition into your existing **RapidRAW 1.7.0** — then open RapidRAW and find **Gaussian Blur**, **Noise**, and **Film Noise** in the Effects panel. (Windows may show a SmartScreen notice because the build is unsigned — *More info → Run anyway*.)
 
 > **Important:** RapidRAW currently has no public runtime plugin API. This project is therefore a clean-room, versioned **source-tree patcher** plus a Windows **end-user updater** that installs a prebuilt RapidRAW edition. It never decompiles or patches a compiled RapidRAW binary in place.
 
