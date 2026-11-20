@@ -41,8 +41,9 @@ Use this checklist for every RapidRAW target-version update.
 
 `.github/workflows/release.yml` reproduces the whole `Package` + `Publish`
 chain on a `windows-latest` runner, modeled on upstream RapidRAW's
-`release.yml`. It triggers when a GitHub Release is **created** (draft or
-published), and can also be started manually via **Run workflow**.
+`release.yml`. It triggers when a GitHub Release is **published**, and can also
+be started manually via **Run workflow** (with `release_tag` for a rebuild that
+uploads to an existing release).
 
 What the job does, in order: checkout this repo + upstream RapidRAW at the pinned tag →
 Rust/Node setup → `npm ci` + `npm test` → `installer/install.mjs` dry-run then

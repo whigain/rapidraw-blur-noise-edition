@@ -16,14 +16,14 @@ name: 'Release: Build & Package Blur Noise Edition'
 #   Secrets:
 #     RAPIDRAW_RELEASE_SIGNING_KEY  the offline Ed25519 PRIVATE key (PEM) whose
 #                    public half is embedded in wrapper/release-public-key.pem.
-#                    Without it the build runs but produces no signed manifest.
+#                    The single-file build fails closed when this is missing.
 #
-# Trigger: create a GitHub Release (draft or published). You can also run it
-# manually via "Run workflow" to build artifacts without touching a release.
+# Trigger: publish a GitHub Release. You can also run it manually via
+# "Run workflow" to build artifacts without touching a release.
 
 on:
   release:
-    types: [created]
+    types: [published]
   workflow_dispatch:
     inputs:
       rapidraw_ref:
@@ -35,6 +35,10 @@ on:
         required: false
         default: false
         type: boolean
+      release_tag:
+        description: 'Existing release tag used when upload=true (for example v0.2.0)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -99,13 +103,15 @@ jobs:
       # On a release, build the plugin AT the tag's version: stamp it into
       # package.json (manifest pluginVersion) and the wrapper's VERSION banner.
       - name: Sync plugin version from release tag
-        if: ${{ github.event_name == 'release' }}
+        if: ${{ github.event_name == 'release' || inputs.release_tag != '' }}
         working-directory: plugin
         shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
         run: |
           set -euo pipefail
-          ver="${GITHUB_REF_NAME#v}"
-          echo "Release tag ${GITHUB_REF_NAME} -> plugin version ${ver}"
+          ver="${RELEASE_TAG#v}"
+          echo "Release tag ${RELEASE_TAG} -> plugin version ${ver}"
           node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version='${ver}';fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
           sed -i "s/const VERSION = '[^']*';/const VERSION = '${ver}';/" wrapper/blurnoiseinstaller.mjs
           grep '"version"' package.json | head -1
@@ -172,10 +178,14 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
         run: |
           set -euo pipefail
-          echo "Uploading single-file installer: dist/BlurNoisePluginInstaller.exe"
+          if [ -z "$TAG" ]; then
+            echo "::error::release_tag is required when a manual run uses upload=true."
+            exit 1
+          fi
+          echo "Uploading single-file installer to ${TAG}: dist/BlurNoisePluginInstaller.exe"
           gh release upload "$TAG" dist/BlurNoisePluginInstaller.exe --clobber --repo "$GITHUB_REPOSITORY"
 
       - name: Upload build artifacts (manual run without release upload)
