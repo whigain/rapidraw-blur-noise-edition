@@ -125,7 +125,7 @@ async function main() {
   log.info(`${C.bold}Next:${C.reset} copy both freshly-built RapidRAW installers next to it, then create the verified release manifest:`);
   log.info(`  cp "../../RapidRAW-main/src-tauri/target/release/bundle/msi/RapidRAW_*.msi" "${DIST}"`);
   log.info(`  cp "../../RapidRAW-main/src-tauri/target/release/bundle/nsis/RapidRAW_*-setup.exe" "${DIST}"`);
-  log.info('  npm run assemble-release');
+  log.info('  RAPIDRAW_RELEASE_SIGNING_KEY=<offline-ed25519-private-key> npm run assemble-release');
   log.info('');
   log.info(`Then distribute all files in ${C.bold}dist/${C.reset} together.`);
 }

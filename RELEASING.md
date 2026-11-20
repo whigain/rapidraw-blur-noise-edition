@@ -26,7 +26,8 @@ Use this checklist for every RapidRAW target-version update.
 - [ ] Verify generated MSI/NSIS paths and sizes.
 - [ ] `npm run build-exe`
 - [ ] Copy exactly one matching MSI and one matching NSIS setup artifact into `dist/`.
-- [ ] `npm run assemble-release` to create the SHA-256 release manifest and third-party notices.
+- [ ] `RAPIDRAW_RELEASE_SIGNING_KEY=<path-to-offline-ed25519-private-key> npm run assemble-release` to create the SHA-256 manifest, detached signature, and third-party notices.
+- [ ] Confirm `release-manifest.sig` verifies against `wrapper/release-public-key.pem` before publishing.
 - [ ] Smoke-test `BlurNoisePluginInstaller.exe` with the prompt declined and intact artifacts.
 - [ ] Modify one copied artifact and verify the updater rejects its SHA-256 mismatch.
 - [ ] Test both MSI and NSIS selection paths against disposable existing RapidRAW installations.
@@ -35,5 +36,5 @@ Use this checklist for every RapidRAW target-version update.
 
 - [ ] Complete every requirement in [PUBLISHING.md](PUBLISHING.md) before publishing binary assets.
 - [ ] Create a Git tag and GitHub Release.
-- [ ] Upload `BlurNoisePluginInstaller.exe`, the matching MSI and NSIS setup artifacts, `release-manifest.json`, and `THIRD_PARTY_NOTICES.txt`.
+- [ ] Upload `BlurNoisePluginInstaller.exe`, the matching MSI and NSIS setup artifacts, `release-manifest.json`, `release-manifest.sig`, and `THIRD_PARTY_NOTICES.txt`.
 - [ ] State supported RapidRAW version, SHA-256 hashes, known limitations, signing status, and upgrade instructions.

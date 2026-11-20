@@ -20,15 +20,15 @@
 
 import { spawnSync, execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { selectBundle, shouldAllowInstall } from './install-selection.mjs';
-import { validateReleaseManifest } from './release-manifest.mjs';
+import { loadVerifiedRelease } from './release-bundle.mjs';
+import { RELEASE_PUBLIC_KEY_PEM } from './release-public-key.mjs';
 
 const VERSION = '0.1.3';
 
@@ -66,36 +66,18 @@ function installerDir() {
 }
 
 // ---------------------------------------------------------------------------
-// Load the signed-release-equivalent manifest shipped next to the updater.
-// The manifest is the only source of installer filenames. Every declared
+// Load the signed release manifest shipped next to the updater. The embedded
+// public key authenticates the exact manifest bytes, and every declared
 // artifact is SHA-256 verified before the updater can launch it.
 // ---------------------------------------------------------------------------
 async function loadBundledRelease() {
   const dir = installerDir();
-  const manifestPath = join(dir, 'release-manifest.json');
-  if (!existsSync(manifestPath)) {
-    throw new Error('release-manifest.json neben dem Updater fehlt. Bitte die vollständigen Release-Dateien zusammen entpacken.');
-  }
-
-  let manifest;
   try {
-    manifest = validateReleaseManifest(JSON.parse(await readFile(manifestPath, 'utf8')));
+    const manifest = await loadVerifiedRelease(dir, RELEASE_PUBLIC_KEY_PEM);
+    return { dir, manifest };
   } catch (error) {
-    throw new Error(`Release-Manifest ist ungültig: ${error.message}`);
+    throw new Error(`Signierte Release-Prüfung fehlgeschlagen: ${error.message}`);
   }
-
-  for (const artifact of manifest.artifacts) {
-    const artifactPath = join(dir, artifact.file);
-    if (!existsSync(artifactPath)) {
-      throw new Error(`Release-Artefakt fehlt: ${artifact.file}`);
-    }
-    const digest = createHash('sha256').update(await readFile(artifactPath)).digest('hex');
-    if (digest !== artifact.sha256) {
-      throw new Error(`SHA-256-Prüfung fehlgeschlagen: ${artifact.file}`);
-    }
-  }
-
-  return { dir, manifest };
 }
 
 // ---------------------------------------------------------------------------

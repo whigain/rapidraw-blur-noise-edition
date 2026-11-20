@@ -8,12 +8,13 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseBundleVersion } from './install-selection.mjs';
+import { RELEASE_MANIFEST_NAME, RELEASE_SIGNATURE_NAME } from './release-bundle.mjs';
 import { validateReleaseManifest } from './release-manifest.mjs';
+import { signReleaseManifest } from './release-signature.mjs';
 
 const WRAPPER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(WRAPPER_DIR, '..');
 const DIST = resolve(ROOT, 'dist');
-const MANIFEST_NAME = 'release-manifest.json';
 const NOTICES_NAME = 'THIRD_PARTY_NOTICES.txt';
 
 async function sha256(path) {
@@ -60,9 +61,16 @@ async function main() {
     artifacts,
   });
 
-  await writeFile(join(DIST, MANIFEST_NAME), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  const signingKeyPath = process.env.RAPIDRAW_RELEASE_SIGNING_KEY;
+  if (!signingKeyPath) {
+    throw new Error('RAPIDRAW_RELEASE_SIGNING_KEY must point to the offline Ed25519 private key');
+  }
+  const manifestBytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  const signature = signReleaseManifest(manifestBytes, await readFile(signingKeyPath, 'utf8'));
+  await writeFile(join(DIST, RELEASE_MANIFEST_NAME), manifestBytes);
+  await writeFile(join(DIST, RELEASE_SIGNATURE_NAME), `${signature}\n`, 'utf8');
   await copyFile(join(WRAPPER_DIR, NOTICES_NAME), join(DIST, NOTICES_NAME));
-  console.log(`Wrote ${MANIFEST_NAME} and ${NOTICES_NAME} to ${DIST}`);
+  console.log(`Wrote ${RELEASE_MANIFEST_NAME}, ${RELEASE_SIGNATURE_NAME}, and ${NOTICES_NAME} to ${DIST}`);
 }
 
 main().catch((error) => {

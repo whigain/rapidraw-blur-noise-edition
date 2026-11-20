@@ -27,17 +27,18 @@ Each upstream RapidRAW release must receive its own tested Blur Noise Edition bu
 
 ## End-user installation — Windows
 
-The release contains five files that must remain in the same folder:
+The release contains six files that must remain in the same folder:
 
 ```text
 BlurNoisePluginInstaller.exe
 RapidRAW_1.7.0_x64-setup.exe
 RapidRAW_1.7.0_x64_en-US.msi
 release-manifest.json
+release-manifest.sig
 THIRD_PARTY_NOTICES.txt
 ```
 
-`release-manifest.json` pins the expected filenames and SHA-256 digests. The updater verifies the selected native installer before it launches it.
+`release-manifest.json` pins the expected filenames and SHA-256 digests. `release-manifest.sig` is an Ed25519 detached signature verified against the updater's embedded public key. The updater rejects any modified, unsigned, or incomplete release before it launches a native installer.
 
 1. Close RapidRAW.
 2. Start `BlurNoisePluginInstaller.exe`.

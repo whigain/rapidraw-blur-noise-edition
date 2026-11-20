@@ -15,6 +15,12 @@ wrapper/sea-config.json
 .env.*
 !.env.example
 
+# Signing material: public keys are tracked, private keys never are
+*.pfx
+*.p12
+*.key
+*private-key*.pem
+
 # OS and editor files
 .DS_Store
 Thumbs.db
