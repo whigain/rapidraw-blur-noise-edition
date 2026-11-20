@@ -1,0 +1,175 @@
+name: 'Release: Build & Package Blur Noise Edition'
+
+# Mirrors upstream RapidRAW's release.yml pattern (on: release -> build -> upload
+# assets), adapted for this repo: this repo is a source-tree PATCHER + updater
+# wrapper, NOT a RapidRAW source checkout. So the job checks out a matching
+# RapidRAW source, applies the clean-room patch, builds the patched edition,
+# packages the self-installing wrapper EXE, assembles the signed release
+# manifest, and uploads all six assets to the release that triggered the run.
+#
+# Required repository configuration (Settings -> Secrets and variables -> Actions):
+#   Variables:
+#     RAPIDRAW_REPO  owner/name of the RapidRAW source repo (default CyberTimon/RapidRAW)
+#     RAPIDRAW_REF   git tag/branch/SHA whose source matches this plugin's patch
+#                    anchors (the edition targets RapidRAW 1.7.0; set this to the
+#                    exact ref that produces that source)
+#   Secrets:
+#     RAPIDRAW_RELEASE_SIGNING_KEY  the offline Ed25519 PRIVATE key (PEM) whose
+#                    public half is embedded in wrapper/release-public-key.pem.
+#                    Without it the build runs but produces no signed manifest.
+#
+# Trigger: create a GitHub Release (draft or published). You can also run it
+# manually via "Run workflow" to build artifacts without touching a release.
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      rapidraw_ref:
+        description: 'RapidRAW source ref (overrides the RAPIDRAW_REF variable)'
+        required: false
+        type: string
+      upload:
+        description: 'Upload built assets to an existing release tag'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      RAPIDRAW_REPO: ${{ vars.RAPIDRAW_REPO || 'CyberTimon/RapidRAW' }}
+      RAPIDRAW_REF: ${{ github.event.inputs.rapidraw_ref || vars.RAPIDRAW_REF }}
+      HAS_SIGNING_KEY: ${{ secrets.RAPIDRAW_RELEASE_SIGNING_KEY != '' }}
+    steps:
+      - name: Checkout plugin
+        uses: actions/checkout@v5
+        with:
+          path: plugin
+
+      - name: Validate RapidRAW ref is configured
+        shell: bash
+        run: |
+          if [ -z "${RAPIDRAW_REF}" ]; then
+            echo "::error::RAPIDRAW_REF is not set. Define the repo variable RAPIDRAW_REF (the RapidRAW source ref whose files match this plugin's patch anchors), or pass rapidraw_ref via 'Run workflow'."
+            exit 1
+          fi
+          echo "Building against ${RAPIDRAW_REPO}@${RAPIDRAW_REF}"
+
+      - name: Checkout RapidRAW source
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.RAPIDRAW_REPO }}
+          ref: ${{ env.RAPIDRAW_REF }}
+          path: rapidraw
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ''
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rapidraw/src-tauri
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Install plugin dependencies
+        working-directory: plugin
+        run: npm ci
+
+      - name: Plugin unit tests
+        working-directory: plugin
+        run: npm test
+
+      - name: Patch RapidRAW source (dry-run)
+        working-directory: plugin
+        run: node installer/install.mjs --rapidraw "../rapidraw" --dry-run
+
+      - name: Patch RapidRAW source
+        working-directory: plugin
+        run: node installer/install.mjs --rapidraw "../rapidraw"
+
+      - name: Install RapidRAW frontend dependencies
+        working-directory: rapidraw
+        run: npm ci
+
+      - name: Build patched RapidRAW (MSI + NSIS)
+        working-directory: rapidraw
+        run: npx tauri build --bundles nsis,msi
+
+      - name: Stage installers into plugin/dist
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p plugin/dist
+          cp rapidraw/src-tauri/target/release/bundle/nsis/RapidRAW_*-setup.exe plugin/dist/
+          cp rapidraw/src-tauri/target/release/bundle/msi/RapidRAW_*.msi plugin/dist/
+          ls -la plugin/dist
+
+      - name: Build self-installing wrapper EXE (Node SEA)
+        working-directory: plugin
+        run: npm run build-exe
+
+      - name: Assemble signed release manifest
+        if: ${{ env.HAS_SIGNING_KEY == 'true' }}
+        working-directory: plugin
+        shell: bash
+        env:
+          SIGNING_KEY: ${{ secrets.RAPIDRAW_RELEASE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          key="${RUNNER_TEMP}/release-ed25519.pem"
+          printf '%s' "$SIGNING_KEY" > "$key"
+          RAPIDRAW_RELEASE_SIGNING_KEY="$key" npm run assemble-release
+          rm -f "$key"
+
+      - name: Verify signed release against embedded public key
+        if: ${{ env.HAS_SIGNING_KEY == 'true' }}
+        working-directory: plugin
+        shell: bash
+        run: |
+          node --input-type=module -e "import { loadVerifiedRelease } from './wrapper/release-bundle.mjs'; import { RELEASE_PUBLIC_KEY_PEM } from './wrapper/release-public-key.mjs'; await loadVerifiedRelease('./dist', RELEASE_PUBLIC_KEY_PEM); console.log('Release manifest verified against embedded public key');"
+
+      - name: Warn when signing key is absent
+        if: ${{ env.HAS_SIGNING_KEY != 'true' }}
+        run: echo "::warning::RAPIDRAW_RELEASE_SIGNING_KEY secret is not set — built the installers and wrapper EXE but produced no signed release-manifest.json/.sig."
+
+      - name: Upload assets to the release
+        if: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.upload) }}
+        working-directory: plugin
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(
+            dist/BlurNoisePluginInstaller.exe
+            dist/RapidRAW_*-setup.exe
+            dist/RapidRAW_*_x64_*.msi
+          )
+          if [ -f dist/release-manifest.json ]; then
+            files+=(dist/release-manifest.json dist/release-manifest.sig dist/THIRD_PARTY_NOTICES.txt)
+          fi
+          echo "Uploading: ${files[*]}"
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Upload build artifacts (manual run without release upload)
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.upload }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blur-noise-edition-dist
+          path: plugin/dist/*
+          if-no-files-found: error
